@@ -44,3 +44,14 @@ function asyncFilterPromise(array, asyncPredicate) {
       .map(function(r) { return r.item; });
   });
 }
+
+async function asyncFilterAwait(array, asyncPredicate) {
+  const results = [];
+  for (const item of array) {
+    const shouldInclude = await asyncPredicate(item);
+    if (shouldInclude) {
+      results.push(item);
+    }
+  }
+  return results;
+}
