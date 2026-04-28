@@ -30,3 +30,17 @@ function asyncFilterCallback(array, asyncPredicate, callback) {
     });
   });
 }
+
+function asyncFilterPromise(array, asyncPredicate) {
+  return Promise.all(
+    array.map(function(item) {
+      return asyncPredicate(item).then(function(shouldInclude) {
+        return { item, shouldInclude };
+      });
+    })
+  ).then(function(results) {
+    return results
+      .filter(function(r) { return r.shouldInclude; })
+      .map(function(r) { return r.item; });
+  });
+}
