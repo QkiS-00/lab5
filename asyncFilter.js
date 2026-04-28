@@ -55,3 +55,54 @@ async function asyncFilterAwait(array, asyncPredicate) {
   }
   return results;
 }
+
+function asyncFilterWithAbort(array, asyncPredicate, signal) {
+  return new Promise(function(resolve, reject) {
+    if (signal && signal.aborted) {
+      reject(new Error('Aborted before start'));
+      return;
+    }
+
+    const onAbort = function() {
+      // cleanup — видаляємо listener одразу
+      signal.removeEventListener('abort', onAbort);
+      reject(new Error('Aborted by user'));
+    };
+
+    if (signal) {
+      signal.addEventListener('abort', onAbort);
+    }
+
+    const promises = array.map(function(item) {
+      return new Promise(function(res, rej) {
+        if (signal && signal.aborted) {
+          rej(new Error('Aborted before processing item'));
+          return;
+        }
+
+        asyncPredicate(item, signal)
+          .then(function(shouldInclude) {
+            if (signal && signal.aborted) {
+              rej(new Error('Aborted after predicate'));
+              return;
+            }
+            res({ item, shouldInclude });
+          })
+          .catch(rej);
+      });
+    });
+
+    Promise.all(promises)
+      .then(function(results) {
+        if (signal) signal.removeEventListener('abort', onAbort);
+        const filtered = results
+          .filter(function(r) { return r.shouldInclude; })
+          .map(function(r) { return r.item; });
+        resolve(filtered);
+      })
+      .catch(function(err) {
+        if (signal) signal.removeEventListener('abort', onAbort);
+        reject(err);
+      });
+  });
+}
