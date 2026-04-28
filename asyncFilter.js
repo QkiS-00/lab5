@@ -1,45 +1,32 @@
-export async function asyncFilterAwait(array, asyncPredicate) {
+function asyncFilterCallback(array, asyncPredicate, callback) {
   const results = [];
+  let completed = 0;
+  let hasError = false;
 
-  for (const item of array) {
-    const shouldInclude = await asyncPredicate(item);
-    if (shouldInclude) {
-      results.push(item);
-    }
+  if (array.length === 0) {
+    callback(null, []);
+    return;
   }
 
-  return results;
-}
+  array.forEach(function(item, index) {
+    asyncPredicate(item, function(err, shouldInclude) {
+      if (hasError) return;
 
-export function asyncFilterWithAbort(array, asyncPredicate, signal) {
-  return new Promise(function(resolve, reject) {
-    if (signal && signal.aborted) {
-      reject(new Error('Aborted before start'));
-      return;
-    }
+      if (err) {
+        hasError = true;
+        callback(err, null);
+        return;
+      }
 
-    const promises = array.map(function(item) {
-      return asyncPredicate(item, signal).then(function(shouldInclude) {
-        if (signal && signal.aborted) {
-          throw new Error('Operation was aborted');
-        }
-        return { item: item, include: shouldInclude };
-      });
-    });
+      results[index] = { item, shouldInclude };
+      completed += 1;
 
-    if (signal) {
-      signal.addEventListener('abort', function() {
-        reject(new Error('Aborted by user'));
-      });
-    }
-
-    Promise.all(promises)
-      .then(function(results) {
+      if (completed === array.length) {
         const filtered = results
-          .filter(function(r) { return r.include; })
+          .filter(function(r) { return r.shouldInclude; })
           .map(function(r) { return r.item; });
-        resolve(filtered);
-      })
-      .catch(reject);
+        callback(null, filtered);
+      }
+    });
   });
 }
