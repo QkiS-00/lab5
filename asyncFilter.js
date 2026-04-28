@@ -105,4 +105,7 @@ function asyncFilterWithAbort(array, asyncPredicate, signal) {
         reject(err);
       });
   });
+}if (array.length === 0) {
+  resolve([]);
+  return;
 }
